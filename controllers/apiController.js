@@ -1,6 +1,8 @@
 const bodyParser=require('body-parser')
 const Recents=require('../models/recents').recents
 const Page=require('../models/page').page
+const jwt=require('jsonwebtoken')
+const User=require('../models/user').user
 module.exports=function(app){
   app.use(bodyParser.json())
   app.use(bodyParser.urlencoded({extended: true}))
@@ -34,6 +36,35 @@ module.exports=function(app){
         res.json(docs[0])
       } else {
         res.json({})
+      }
+    })
+  })
+
+  app.post('/login', function(req, res){
+    User.findOne({'email': req.body.email}, function (err, user){
+      console.log('user found')
+    })
+  })
+
+  app.post('/createAccount', function(req, res){
+    console.log(req.body)
+    if (req.body.email===null ||req.body.email===undefined||req.body.email===""){
+      res.json({error: 'email must not be blank'})
+      return
+    }
+    if (req.body.password===null ||req.body.password===undefined||req.body.password===""){
+      res.json({error: 'password must not be blank'})
+      return
+    }
+    User.find({'email': req.body.email}, function (err, docs){
+      if (docs.length==0){
+        console.log('email not taken')
+        res.json({success: true})
+        return
+      } else {
+        console.log('email is taken')
+        res.json({error: 'email is taken'})
+        return
       }
     })
   })
