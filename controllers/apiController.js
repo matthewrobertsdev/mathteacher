@@ -3,43 +3,65 @@ const Recents = require('../models/recents').recents
 const Page = require('../models/page').page
 const jwt = require('jsonwebtoken')
 const User = require('../models/user').user
+const privateKey=require('../config/config.json').secret
 module.exports = function (app) {
   app.use(bodyParser.json())
   app.use(bodyParser.urlencoded({ extended: true }))
 
   //get for a main teaching page
-  app.get('/teachings/:teachingName', function (req, res) {
+  app.post('/teachings/:teachingName', function (req, res) {
     console.log('teaching page history update')
     console.log(req.params.teachingName)
-    updateRecents(req.params.teachingName, null, null, res)
+    updateRecents(req, req.params.teachingName, null, null, res)
   })
 
   //get for a method teaching
-  app.get('/teachings/:teachingName/:methodName', function (req, res) {
+  app.post('/teachings/:teachingName/:methodName', function (req, res) {
     console.log('method page history update')
     console.log(req.params.teachingName)
-    updateRecents(req.params.teachingName, req.params.methodName, null, res)
+    updateRecents(req, req.params.teachingName, req.params.methodName, null, res)
   })
 
   //get for a solving page
-  app.get('/teachings/:teachingName/:methodName/:args', function (req, res) {
+  app.post('/teachings/:teachingName/:methodName/:args', function (req, res) {
     console.log('solving page history update')
     console.log(req.params.teachingName)
-    updateRecents(req.params.teachingName, req.params.methodName, req.params.args, res)
+    updateRecents(req, req.params.teachingName, req.params.methodName, req.params.args, res)
   })
   //get for the recents page
-  app.get('/recents', function (req, res) {
-    console.log('Recieved request for recents')
+  app.post('/recents', function (req, res) {
+    console.log('Received request for recents')
+    let decodedJWT={}
+    try{
+      console.log(req.body.jwt)
+      decodedJWT=jwt.verify(req.body.jwt, privateKey)
+    } catch {
+      res.json({error: 'invalidJWT'})
+      return
+    }
     //res.json({message: 'Recieved request for recents'})
-    Recents.find({}, function (err, docs) {
+    Recents.find({email: decodedJWT.email}, function (err, docs) {
       if (docs.length != 0) {
         res.json(docs[0])
       } else {
-        res.json({})
+        //if recents is not found
+      console.log('recents not found')
+      //create the recents with the new page
+      const recents = Recents({
+        email: decodedJWT.email,
+        pages: []
+      })
+      //save the recents
+      recents.save(function (err) {
+        console.log(err)
+        res.json({ message: 'Recents initiated' })
+        console.log('Recents initiated')
+      })
       }
     })
   })
 
+  //try to login user
   app.post('/login', function (req, res) {
     console.log(req.body)
     if (req.body.email === null || req.body.email === undefined || req.body.email === "") {
@@ -50,9 +72,10 @@ module.exports = function (app) {
       res.json({ error: 'password must not be blank' })
       return
     }
-    handlePassword = (bool)=>{
+    handlePassword = (bool) => {
       if (bool) {
-        res.json({ success: true })
+        console.log(req.body.email)
+        res.json({ success: true, email: req.body.email, jwt: jwt.sign({email: req.body.email}, privateKey, {expiresIn: '1d'})})
       } else {
         res.json({ error: 'invalid username or password' })
       }
@@ -65,6 +88,7 @@ module.exports = function (app) {
     })
 })
 
+//try to create an account
 app.post('/createAccount', function (req, res) {
   if (req.body.email === null || req.body.email === undefined || req.body.email === "") {
     res.json({ error: 'email must not be blank' })
@@ -95,8 +119,17 @@ app.post('/createAccount', function (req, res) {
 
 }
 
-function updateRecents(teaching, methodName, args, res) {
-  Recents.find({}, function (err, docs) {
+//update the recents
+function updateRecents(req, teaching, methodName, args, res) {
+  let decodedJWT={}
+    try{
+      console.log(req.body.jwt)
+      decodedJWT=jwt.verify(req.body.jwt, privateKey)
+    } catch {
+      res.json({error: 'invalid JWT'})
+      return
+    }
+  Recents.find({email: decodedJWT.email}, function (err, docs) {
     console.log(err)
     //create the page
     const page = Page({
@@ -136,6 +169,7 @@ function updateRecents(teaching, methodName, args, res) {
       console.log('recents not found')
       //create the recents with the new page
       const recents = Recents({
+        email: decodedJWT.email,
         pages: [page]
       })
       //save the recents

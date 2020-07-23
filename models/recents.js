@@ -4,6 +4,7 @@ const Page=require('./page')
 const Schema=mongoose.Schema
 
 const recentsScehma=new Schema({
+  email: String,
   pages: [Page.pageScema]
 })
 
